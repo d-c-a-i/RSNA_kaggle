@@ -38,7 +38,7 @@ class BreastCancerModel(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    df_train = pd.read_csv('/home/derek/ML_comp_data/RSNA/split/baseline/5folds_train.csv')
+    df_train = pd.read_csv('src/5folds_train.csv')
     AUX_TARGET_NCLASSES = df_train[CATEGORY_AUX_TARGETS].max() + 1
     with torch.no_grad():
         model = BreastCancerModel(AUX_TARGET_NCLASSES, model_type='seresnext50_32x4d')

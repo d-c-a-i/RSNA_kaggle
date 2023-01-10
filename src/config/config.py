@@ -45,7 +45,7 @@ RSNA_2022_PATH = '/home/derek/ML_comp_data/RSNA'
 TRAIN_IMAGES_PATH = f'/home/derek/Desktop/rsna-cut-off-empty-space-from-images'
 MAX_TRAIN_BATCHES = 40000
 MAX_EVAL_BATCHES = 400
-MODELS_PATH = '/home/derek/Desktop/RSNA_baseline_kaggle/models_roi_1024'
+# MODELS_PATH = '/home/derek/Desktop/RSNA_baseline_kaggle/models_roi_1024'
 NUM_WORKERS = 8
 PREDICT_MAX_BATCHES = 1e9
 N_FOLDS = 5
@@ -65,7 +65,7 @@ CV = True
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-df_train = pd.read_csv('/home/derek/ML_comp_data/RSNA/split/baseline/5folds_train.csv')
+df_train = pd.read_csv('src/5folds_train.csv')
 AUX_TARGET_NCLASSES = df_train[CATEGORY_AUX_TARGETS].max() + 1
 
 
