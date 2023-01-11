@@ -38,15 +38,17 @@ class BreastCancerModel(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    df_train = pd.read_csv('src/5folds_train.csv')
-    AUX_TARGET_NCLASSES = df_train[CATEGORY_AUX_TARGETS].max() + 1
-    with torch.no_grad():
-        model = BreastCancerModel(AUX_TARGET_NCLASSES, model_type='seresnext50_32x4d')
-        pred, aux = model.predict(torch.randn(2, 3, 512, 512))
-        print('seresnext', pred.shape, len(aux))
+    # df_train = pd.read_csv('/home/derek/Desktop/RSNA_baseline_kaggle/src/5folds_train.csv')
+    # AUX_TARGET_NCLASSES = df_train[CATEGORY_AUX_TARGETS].max() + 1
+    # with torch.no_grad():
+    #     model = BreastCancerModel(AUX_TARGET_NCLASSES, model_type='seresnext50_32x4d')
+    #     pred, aux = model.predict(torch.randn(2, 3, 512, 512))
+    #     print('seresnext', pred.shape, len(aux))
 
-        model = BreastCancerModel(AUX_TARGET_NCLASSES, model_type='efficientnet_b4')
-        pred, aux = model.predict(torch.randn(2, 3, 512, 512))
-        print('efficientnet_b4', pred.shape, len(aux))
+    #     model = BreastCancerModel(AUX_TARGET_NCLASSES, model_type='efficientnet_b4')
+    #     pred, aux = model.predict(torch.randn(2, 3, 512, 512))
+    #     print('efficientnet_b4', pred.shape, len(aux))
 
-    del model
+    # del model
+    import sys
+    print(sys.path)

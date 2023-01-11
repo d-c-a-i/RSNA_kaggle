@@ -40,6 +40,7 @@ class Config:
     AUTO_AUG_M = 10
     AUTO_AUG_N = 2
     TTA = False
+    CUSTOM_NET=False
     
 RSNA_2022_PATH = '/home/derek/ML_comp_data/RSNA'
 TRAIN_IMAGES_PATH = f'/home/derek/Desktop/rsna-cut-off-empty-space-from-images'
@@ -65,7 +66,7 @@ CV = True
 
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-df_train = pd.read_csv('src/5folds_train.csv')
+df_train = pd.read_csv('/home/derek/Desktop/RSNA_baseline_kaggle/src/5folds_train.csv')
 AUX_TARGET_NCLASSES = df_train[CATEGORY_AUX_TARGETS].max() + 1
 
 

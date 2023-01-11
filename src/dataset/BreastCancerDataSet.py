@@ -56,7 +56,7 @@ class BreastCancerDataSet(torch.utils.data.Dataset):
         return self.df.shape[0]
 
 if __name__ == "__main__":
-    df_train = pd.read_csv('src/5folds_train.csv')
+    df_train = pd.read_csv('/home/derek/Desktop/RSNA_baseline_kaggle/src/5folds_train.csv')
     ds_train = BreastCancerDataSet(df_train, TRAIN_IMAGES_PATH, True)
     if DEBUG:
         X, y_cancer, y_aux = ds_train[42]

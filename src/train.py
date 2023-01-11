@@ -3,6 +3,7 @@ sys.path.append('/home/derek/Desktop/RSNA_baseline_kaggle/src')
 import wandb
 from config.config import *
 from model.BreastCancerModel import *
+from model.CustomNet import *
 from dataset.BreastCancerDataSet import *
 from utils.training_utils import *
 import argparse
@@ -15,23 +16,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='RSNA Breast Cancer Detection')
 
     # hyperparameters sent by the client are passed as command-line arguments to the script.
-    parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--train_batch_size', type=int, default=64)
-    parser.add_argument('--val_batch_size', type=int, default=128)
-
-    # Data, model, and output directories
-    parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
-    parser.add_argument('--model_dir', type=str, default=os.environ['SM_MODEL_DIR'])
-    parser.add_argument('--train_data_path', type=str, default=os.environ['SM_CHANNEL_TRAIN'])
-    
     # parser.add_argument('--epochs', type=int, default=10)
-    # parser.add_argument('--train_batch_size', type=int, default=16)
-    # parser.add_argument('--val_batch_size', type=int, default=16)
+    # parser.add_argument('--train_batch_size', type=int, default=64)
+    # parser.add_argument('--val_batch_size', type=int, default=128)
 
     # # Data, model, and output directories
-    # parser.add_argument('--output-data-dir', type=str, default='dat')
-    # parser.add_argument('--model_dir', type=str, default='exp0')
-    # parser.add_argument('--train_data_path', type=str, default='/home/derek/Desktop/rsna-cut-off-empty-space-from-images')
+    # parser.add_argument('--output-data-dir', type=str, default=os.environ['SM_OUTPUT_DATA_DIR'])
+    # parser.add_argument('--model_dir', type=str, default=os.environ['SM_MODEL_DIR'])
+    # parser.add_argument('--train_data_path', type=str, default=os.environ['SM_CHANNEL_TRAIN'])
+    
+    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--train_batch_size', type=int, default=16)
+    parser.add_argument('--val_batch_size', type=int, default=16)
+
+    # Data, model, and output directories
+    parser.add_argument('--output-data-dir', type=str, default='dat')
+    parser.add_argument('--model_dir', type=str, default='src/exp0')
+    parser.add_argument('--train_data_path', type=str, default='/home/derek/Desktop/rsna-cut-off-empty-space-from-images')
     
     args = parser.parse_args()
     
@@ -61,7 +62,7 @@ if __name__ == "__main__":
             {'params': decay, 'weight_decay': weight_decay}]
         
 
-    def evaluate_model(model: BreastCancerModel, ds, max_batches=PREDICT_MAX_BATCHES, shuffle=False, config=Config):
+    def evaluate_model(model, ds, max_batches=PREDICT_MAX_BATCHES, shuffle=False, config=Config):
         # torch.manual_seed(42)
         model = model.to(DEVICE)
         
@@ -81,22 +82,48 @@ if __name__ == "__main__":
                     with autocast(enabled=True):
                         y_aux = y_aux.to(DEVICE)
                         X = X.to(DEVICE)
-                        y_cancer_pred, aux_pred = model.forward(X)
-                        if config.TTA:
-                            y_cancer_pred2, aux_pred2 = model.forward(torch.flip(X, dims=[-1])) # horizontal mirror
-                            y_cancer_pred = (y_cancer_pred + y_cancer_pred2) / 2
-                            aux_pred = [(v1 + v2) / 2 for v1, v2 in zip(aux_pred, aux_pred2)]
+                        if not config.CUSTOM_NET:
+                            y_cancer_pred, aux_pred = model.forward(X)
+                            # if config.TTA:
+                            #     y_cancer_pred2, aux_pred2 = model.forward(torch.flip(X, dims=[-1])) # horizontal mirror
+                            #     y_cancer_pred = (y_cancer_pred + y_cancer_pred2) / 2
+                            #     aux_pred = [(v1 + v2) / 2 for v1, v2 in zip(aux_pred, aux_pred2)]
 
-                        cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                            y_cancer_pred, 
-                            y_cancer.to(float).to(DEVICE),
-                            pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
-                        ).item()
-                        aux_loss = torch.mean(torch.stack([torch.nn.functional.cross_entropy(aux_pred[i], y_aux[:, i]) for i in range(y_aux.shape[-1])])).item()
+                            cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                                y_cancer_pred, 
+                                y_cancer.to(float).to(DEVICE),
+                                pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
+                            ).item()
+                            aux_loss = torch.mean(torch.stack([torch.nn.functional.cross_entropy(aux_pred[i], y_aux[:, i]) for i in range(y_aux.shape[-1])])).item()
+                            total_loss = cancer_loss + config.AUX_LOSS_WEIGHT * aux_loss
+                            
+                        else:
+                            # logits_clf, logits_deeps, logits_hypercol = model.forward(X.to(DEVICE))
+                            # cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                            #     logits_clf,
+                            #     y_cancer.to(float).to(DEVICE),
+                            #     pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
+                            # )
+                            # # add hypercol loss after experimenting with only deep supervision
+                            # aux_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                            #     logits_deeps,
+                            #     y_cancer.to(float).to(DEVICE)
+                            # )
+                            # total_loss = cancer_loss + aux_loss
+                            y_cancer_pred = model.forward(X.to(DEVICE))
+                            cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                                y_cancer_pred,
+                                y_cancer.to(float).to(DEVICE),
+                                pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
+                            )
+                            # add hypercol loss after experimenting with only deep supervision
+                            aux_loss = 0
+                            total_loss = cancer_loss + aux_loss
+                        
                         pred_cancer.append(torch.sigmoid(y_cancer_pred))
                         cancer_losses.append(cancer_loss)
                         aux_losses.append(aux_loss)
-                        losses.append(cancer_loss + config.AUX_LOSS_WEIGHT * aux_loss)
+                        losses.append(total_loss)
                         targets.append(y_cancer.cpu().numpy())
                     if i >= max_batches:
                         break
@@ -114,7 +141,13 @@ if __name__ == "__main__":
         dl_train = torch.utils.data.DataLoader(ds_train, batch_size=args.train_batch_size, shuffle=False, num_workers=NUM_WORKERS,\
                                             pin_memory=False, sampler=ewrs, drop_last=True)
 
-        model = BreastCancerModel(AUX_TARGET_NCLASSES, config.MODEL_TYPE, config.DROPOUT).to(DEVICE)
+        if not config.CUSTOM_NET:
+            model = BreastCancerModel(AUX_TARGET_NCLASSES, config.MODEL_TYPE, config.DROPOUT).to(DEVICE)
+        else:
+            model = Custom_effnetv2_s(last_k_layers=6,
+                                      IMAGENET_pretrained=True,
+                                      drop_rate=config.DROPOUT,
+                                      drop_path_rate=config.DROP_PATH_RATE).to(DEVICE)
 
         if config.ADAMW:
             optim = torch.optim.AdamW(model.parameters(), lr=config.LR, weight_decay=config.WEIGHT_DECAY)
@@ -148,19 +181,55 @@ if __name__ == "__main__":
                     torch.set_grad_enabled(True)
                     # Using mixed precision training
                     with autocast():
-                        y_cancer_pred, aux_pred = model.forward(X.to(DEVICE))
-                        cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
-                            y_cancer_pred,
-                            y_cancer.to(float).to(DEVICE),
-                            pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
-                        )
-                        aux_loss = torch.mean(torch.stack([torch.nn.functional.cross_entropy(aux_pred[i], y_aux[:, i]) for i in range(y_aux.shape[-1])]))
-                        loss = cancer_loss + config.AUX_LOSS_WEIGHT * aux_loss
-                        if np.isinf(loss.item()) or np.isnan(loss.item()):
-                            print(f'Bad loss, skipping the batch {batch_idx}')
-                            del loss, cancer_loss, y_cancer_pred
-                            gc_collect()
-                            continue
+                        if not config.CUSTOM_NET:
+                            y_cancer_pred, aux_pred = model.forward(X.to(DEVICE))
+                            cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                                y_cancer_pred,
+                                y_cancer.to(float).to(DEVICE),
+                                pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
+                            )
+                            aux_loss = torch.mean(torch.stack([torch.nn.functional.cross_entropy(aux_pred[i], y_aux[:, i]) for i in range(y_aux.shape[-1])]))
+                            loss = cancer_loss + config.AUX_LOSS_WEIGHT * aux_loss
+                            if np.isinf(loss.item()) or np.isnan(loss.item()):
+                                print(f'Bad loss, skipping the batch {batch_idx}')
+                                del loss, cancer_loss, y_cancer_pred
+                                gc_collect()
+                                continue
+                        else:
+                            # logits_clf, logits_deeps, logits_hypercol = model.forward(X.to(DEVICE))
+                            # cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                            #     logits_clf,
+                            #     y_cancer.to(float).to(DEVICE),
+                            #     pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
+                            # )
+                            # # add hypercol loss after experimenting with only deep supervision
+                            # aux_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                            #     logits_deeps,
+                            #     y_cancer.to(float).to(DEVICE)
+                            # )
+                            # loss = cancer_loss+aux_loss
+                            # # loss = cancer_loss + config.AUX_LOSS_WEIGHT * aux_loss
+                            # if np.isinf(loss.item()) or np.isnan(loss.item()):
+                            #     print(f'Bad loss, skipping the batch {batch_idx}')
+                            #     del loss, cancer_loss, y_cancer_pred
+                            #     gc_collect()
+                            #     continue
+                            logits_clf = model.forward(X.to(DEVICE))
+                            cancer_loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                                logits_clf,
+                                y_cancer.to(float).to(DEVICE),
+                                pos_weight=torch.tensor([config.POSITIVE_TARGET_WEIGHT]).to(DEVICE)
+                            )
+                            # add hypercol loss after experimenting with only deep supervision
+                            aux_loss = torch.Tensor([0]).to(DEVICE)
+                            loss = cancer_loss+aux_loss
+                            # loss = cancer_loss + config.AUX_LOSS_WEIGHT * aux_loss
+                            if np.isinf(loss.item()) or np.isnan(loss.item()):
+                                print(f'Bad loss, skipping the batch {batch_idx}')
+                                del loss, cancer_loss, y_cancer_pred
+                                gc_collect()
+                                continue
+                            
 
                     # scaler is needed to prevent "gradient underflow"
                     # scaler.scale(loss).backward()
@@ -215,7 +284,7 @@ if __name__ == "__main__":
     
     
     set_seeds(2023)
-    df_train = pd.read_csv('src/5folds_train.csv')
+    df_train = pd.read_csv('/home/derek/Desktop/RSNA_baseline_kaggle/src/5folds_train.csv')
     AUX_TARGET_NCLASSES = df_train[CATEGORY_AUX_TARGETS].max() + 1
     # weight_path = '/home/derek/Desktop/RSNA_baseline_kaggle/exp0_weights'
     # os.makedirs(weight_path, exist_ok=True)

@@ -33,5 +33,5 @@ if __name__ == "__main__":
     # df_train = pd.read_csv((f'{RSNA_2022_PATH}/train.csv'))
     # split_data(df_train, '/home/derek/ML_comp_data/RSNA/split', 'baseline')
     import pandas as pd
-    pd.read_csv('src/5folds_train.csv')
+    pd.read_csv('/home/derek/Desktop/RSNA_baseline_kaggle/src/5folds_train.csv')
     print(len(df_train.loc[df_train.cancer == 0]) / len(df_train.loc[df_train.cancer == 1]))
